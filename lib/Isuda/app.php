@@ -51,16 +51,17 @@ $container = new class extends \Slim\Container {
             $re = implode('|', array_map(function ($keyword) { return quotemeta($keyword['keyword']); }, $kwtmp));
             preg_replace_callback("/($re)/", function ($m) use (&$kw2sha) {
                 $kw = $m[1];
-                return $kw2sha[$kw] = "isuda_" . sha1($kw);
+                return $kw2sha[] = $kw;
             }, $content);
         }
         $content = strtr($content, $kw2sha);
         $content = html_escape($content);
-        foreach ($kw2sha as $kw => $hash) {
+        var_dump($kw2sha);
+        foreach ($kw2sha as $kw) {
             $url = '/keyword/' . rawurlencode($kw);
             $link = sprintf('<a href="%s">%s</a>', $url, html_escape($kw));
 
-            $content = preg_replace("/{$hash}/", $link, $content);
+            $content = preg_replace("/{$kw}/", $link, $content);
         }
         return nl2br($content, true);
     }
