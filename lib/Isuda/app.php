@@ -29,39 +29,41 @@ $container = new class extends \Slim\Container {
     public function __construct() {
         parent::__construct();
 
-        $this->dbh = new PDOWrapper(new PDO(
-            $_ENV['ISUDA_DSN'],
-            $_ENV['ISUDA_DB_USER'] ?? 'isucon',
-            $_ENV['ISUDA_DB_PASSWORD'] ?? 'isucon',
-            [ PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4" ]
-        ));
+        $this->dbh = null; // 初期化時には接続をnullに設定
+    }
+
+    public function getDbh() {
+        if ($this->dbh === null) {
+            $this->dbh = new PDOWrapper(new PDO(
+                $_ENV['ISUDA_DSN'],
+                $_ENV['ISUDA_DB_USER'] ?? 'isucon',
+                $_ENV['ISUDA_DB_PASSWORD'] ?? 'isucon',
+                [ PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4" ]
+            ));
+        }
+        return $this->dbh;
     }
 
     public function htmlify($content) {
         if (!isset($content)) {
             return '';
         }
-        $keywords = $this->dbh->select_all(
-            'SELECT * FROM entry ORDER BY CHARACTER_LENGTH(keyword) DESC'
-        );
-        $kw2sha = [];
+        $keywords = $this->getDbh()->select_all('SELECT keyword FROM entry ORDER BY keyword_length DESC');
+        $keywordsMap = array_column($keywords, 'keyword');
 
-        // NOTE: avoid pcre limitation "regular expression is too large at offset"
-        for ($i = 0; !empty($kwtmp = array_slice($keywords, 500 * $i, 500)); $i++) {
-            $re = implode('|', array_map(function ($keyword) { return quotemeta($keyword['keyword']); }, $kwtmp));
-            preg_replace_callback("/($re)/", function ($m) use (&$kw2sha) {
-                $kw = $m[1];
-                return $kw2sha[$kw] = "isuda_" . sha1($kw);
+        $chunkSize = 500;
+        $keywordChunks = array_chunk($keywordsMap, $chunkSize);
+
+        foreach ($keywordChunks as $keywordChunk) {
+            $pattern = '/(' . implode('|', array_map('preg_quote', $keywordChunk)) . ')/i';
+
+            $content = preg_replace_callback($pattern, function ($match) {
+                $keyword = $match[1];
+                $url = '/keyword/' . rawurlencode($keyword);
+                return sprintf('<a href="%s">%s</a>', $url, html_escape($keyword));
             }, $content);
         }
-        $content = strtr($content, $kw2sha);
-        $content = html_escape($content);
-        foreach ($kw2sha as $kw => $hash) {
-            $url = '/keyword/' . rawurlencode($kw);
-            $link = sprintf('<a href="%s">%s</a>', $url, html_escape($kw));
 
-            $content = preg_replace("/{$hash}/", $link, $content);
-        }
         return nl2br($content, true);
     }
 
@@ -93,7 +95,7 @@ $mw['set_name'] = function ($req, $c, $next) {
     $user_id = $_SESSION['user_id'] ?? null;
     if (isset($user_id)) {
         $this->get('stash')['user_id'] = $user_id;
-        $this->get('stash')['user_name'] = $this->dbh->select_one(
+        $this->get('stash')['user_name'] = $this->getDbh()->select_one(
             'SELECT name FROM user WHERE id = ?'
             , $user_id);
         if (!isset($this->get('stash')['user_name'])) {
@@ -110,8 +112,9 @@ $mw['authenticate'] = function ($req, $c, $next) {
     return $next($req, $c);
 };
 
-$app->get('/initialize', function (Request $req, Response $c) {
-    $this->dbh->query(
+$app->get('/initialize', function (Request $req, Response $c) use ($container) {
+    $dbh = $container->getDbh();
+    $dbh->query(
         'DELETE FROM entry WHERE id > 7101'
     );
     $origin = config('isutar_origin');
@@ -122,12 +125,14 @@ $app->get('/initialize', function (Request $req, Response $c) {
     ]);
 });
 
-$app->get('/', function (Request $req, Response $c) {
+$app->get('/', function (Request $req, Response $c) use ($container) {
     $PER_PAGE = 10;
     $page = $req->getQueryParams()['page'] ?? 1;
 
+    $dbh = $container->getDbh();
+
     $offset = $PER_PAGE * ($page-1);
-    $entries = $this->dbh->select_all(
+    $entries = $dbh->select_all(
         'SELECT * FROM entry '.
         'ORDER BY updated_at DESC '.
         "LIMIT $PER_PAGE ".
@@ -139,7 +144,7 @@ $app->get('/', function (Request $req, Response $c) {
     }
     unset($entry);
 
-    $total_entries = $this->dbh->select_one(
+    $total_entries = $dbh->select_one(
         'SELECT COUNT(*) FROM entry'
     );
     $last_page = ceil($total_entries / $PER_PAGE);
@@ -152,7 +157,7 @@ $app->get('/robots.txt', function (Request $req, Response $c) {
     return $c->withStatus(404);
 });
 
-$app->post('/keyword', function (Request $req, Response $c) {
+$app->post('/keyword', function (Request $req, Response $c) use ($container) {
     $keyword = $req->getParsedBody()['keyword'];
     if (!isset($keyword)) {
         return $c->withStatus(400)->write("'keyword' required");
@@ -163,11 +168,12 @@ $app->post('/keyword', function (Request $req, Response $c) {
     if (is_spam_contents($description) || is_spam_contents($keyword)) {
         return $c->withStatus(400)->write('SPAM!');
     }
-    $this->dbh->query(
-        'INSERT INTO entry (author_id, keyword, description, created_at, updated_at)'
+    $dbh = $container->getDbh();
+    $dbh->query(
+        'INSERT INTO entry (keyword, description, created_at, updated_at)'
         .' VALUES (?, ?, ?, NOW(), NOW())'
         .' ON DUPLICATE KEY UPDATE'
-        .' author_id = ?, keyword = ?, description = ?, updated_at = NOW()'
+        .' keyword = ?, description = ?, updated_at = NOW()'
     , $user_id, $keyword, $description, $user_id, $keyword, $description);
 
     return $c->withRedirect('/');
@@ -179,13 +185,14 @@ $app->get('/register', function (Request $req, Response $c) {
     ]);
 })->add($mw['set_name'])->setName('/register');
 
-$app->post('/register', function (Request $req, Response $c) {
+$app->post('/register', function (Request $req, Response $c) use ($container) {
     $name = $req->getParsedBody()['name'];
     $pw   = $req->getParsedBody()['password'];
     if ($name === '' || $pw === '') {
         return $c->withStatus(400);
     }
-    $user_id = register($this->dbh, $name, $pw);
+    $dbh = $container->getDbh();
+    $user_id = register($dbh, $name, $pw);
 
     $_SESSION['user_id'] = $user_id;
     return $c->withRedirect('/');
@@ -207,9 +214,10 @@ $app->get('/login', function (Request $req, Response $c) {
     ]);
 })->add($mw['set_name'])->setName('/login');
 
-$app->post('/login', function (Request $req, Response $c) {
+$app->post('/login', function (Request $req, Response $c) use ($container) {
     $name = $req->getParsedBody()['name'];
-    $row = $this->dbh->select_row(
+    $dbh = $container->getDbh();
+    $row = $dbh->select_row(
         'SELECT * FROM user'
         . ' WHERE name = ?'
     , $name);
@@ -231,11 +239,12 @@ $app->get('/logout', function (Request $req, Response $c) {
     return $c->withRedirect('/');
 });
 
-$app->get('/keyword/{keyword}', function (Request $req, Response $c) {
+$app->get('/keyword/{keyword}', function (Request $req, Response $c) use ($container) {
     $keyword = $req->getAttribute('keyword');
     if ($keyword === null) return $c->withStatus(400);
 
-    $entry = $this->dbh->select_row(
+    $dbh = $container->getDbh();
+    $entry = $dbh->select_row(
         'SELECT * FROM entry'
         .' WHERE keyword = ?'
     , $keyword);
@@ -248,19 +257,20 @@ $app->get('/keyword/{keyword}', function (Request $req, Response $c) {
     ]);
 })->add($mw['set_name']);
 
-$app->post('/keyword/{keyword}', function (Request $req, Response $c) {
+$app->post('/keyword/{keyword}', function (Request $req, Response $c) use ($container) {
     $keyword = $req->getAttribute('keyword');
     if ($keyword === null) return $c->withStatus(400);
     $delete = $req->getParsedBody()['delete'];
     if ($delete === null) return $c->withStatus(400);
 
-    $entry = $this->dbh->select_row(
+    $dbh = $container->getDbh();
+    $entry = $dbh->select_row(
         'SELECT * FROM entry'
         .' WHERE keyword = ?'
     , $keyword);
     if (empty($entry)) return $c->withStatus(404);
 
-    $this->dbh->query('DELETE FROM entry WHERE keyword = ?', $keyword);
+    $dbh->query('DELETE FROM entry WHERE keyword = ?', $keyword);
     return $c->withRedirect('/');
 })->add($mw['authenticate'])->add($mw['set_name']);
 
