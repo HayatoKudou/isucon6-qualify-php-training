@@ -41,7 +41,9 @@ $container = new class extends \Slim\Container {
         if (!isset($content)) {
             return '';
         }
-        $keywords = $this->dbh->select_all('SELECT keyword FROM entry ORDER BY keyword_length DESC');
+        $keywords = $this->dbh->select_all(
+            'SELECT keyword FROM entry ORDER BY keyword_length DESC'
+        );
         $kw2sha = [];
 
         // NOTE: avoid pcre limitation "regular expression is too large at offset"
@@ -49,18 +51,17 @@ $container = new class extends \Slim\Container {
             $re = implode('|', array_map(function ($keyword) { return quotemeta($keyword['keyword']); }, $kwtmp));
             preg_replace_callback("/($re)/", function ($m) use (&$kw2sha) {
                 $kw = $m[1];
-                return $kw2sha[] = $kw;
+                return $kw2sha[$kw] = "isuda_" . sha1($kw);
             }, $content);
         }
         $content = strtr($content, $kw2sha);
         $content = html_escape($content);
-        foreach ($kw2sha as $kw) {
+        foreach ($kw2sha as $kw => $hash) {
             $url = '/keyword/' . rawurlencode($kw);
             $link = sprintf('<a href="%s">%s</a>', $url, html_escape($kw));
 
-            $content = preg_replace("/{$kw}/", $link, $content);
+            $content = preg_replace("/{$hash}/", $link, $content);
         }
-        var_dump($content);
         return nl2br($content, true);
     }
 
