@@ -46,15 +46,23 @@ $container = new class extends \Slim\Container {
         );
         $kw2sha = [];
 
-        $keywordsMap = array_column($keywords, 'keyword');
-        var_dump($keywordsMap);
+//        $keywordsMap = array_column($keywords, 'keyword');
+//        var_dump($keywordsMap);
+//
+//        $pattern = '/(' . implode('|', array_map('preg_quote', $keywordsMap)) . ')/i';
+//        var_dump($pattern);
 
-        $pattern = '/(' . implode('|', array_map('preg_quote', $keywordsMap)) . ')/i';
-        var_dump($pattern);
+        $content = preg_replace_callback($pattern, function ($match) {
+            $keyword = $match[1];
+            $url = '/keyword/' . rawurlencode($keyword);
+            $link = sprintf('<a href="%s">%s</a>', $url, html_escape($keyword));
+            return $link;
+        }, $content);
 
         // NOTE: avoid pcre limitation "regular expression is too large at offset"
         for ($i = 0; !empty($kwtmp = array_slice($keywords, 500 * $i, 500)); $i++) {
             $re = implode('|', array_map(function ($keyword) { return quotemeta($keyword['keyword']); }, $kwtmp));
+            var_dump($re);
             preg_replace_callback("/($re)/", function ($m) use (&$kw2sha) {
                 $kw = $m[1];
                 return $kw2sha[$kw] = "isuda_" . sha1($kw);
