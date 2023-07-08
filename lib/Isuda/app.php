@@ -41,24 +41,24 @@ $container = new class extends \Slim\Container {
         if (!isset($content)) {
             return '';
         }
-        $keywords = $this->dbh->select_all(
-            'SELECT keyword FROM entry ORDER BY keyword_length DESC'
-        );
-        $kw2sha = [];
-
+        $keywords = $this->dbh->select_all('SELECT keyword FROM entry ORDER BY keyword_length DESC');
         $keywordsMap = array_column($keywords, 'keyword');
-//        var_dump($keywordsMap);
 
-        $pattern = '/(' . implode('|', array_map('preg_quote', $keywordsMap)) . ')/i';
-//        var_dump($pattern);
+        $chunkSize = 500;
+        $keywordChunks = array_chunk($keywordsMap, $chunkSize);
 
-        $content = preg_replace_callback($pattern, function ($match) {
-            var_dump($match);
-            $keyword = $match[1];
-            $url = '/keyword/' . rawurlencode($keyword);
-            $link = sprintf('<a href="%s">%s</a>', $url, html_escape($keyword));
-            return $link;
-        }, $content);
+        foreach ($keywordChunks as $keywordChunk) {
+            $pattern = '/(' . implode('|', array_map('preg_quote', $keywordChunk)) . ')/i';
+
+            $content = preg_replace_callback($pattern, function ($match) {
+                var_dump($match);
+                $keyword = $match[1];
+                $url = '/keyword/' . rawurlencode($keyword);
+                return sprintf('<a href="%s">%s</a>', $url, html_escape($keyword));
+            }, $content);
+        }
+
+        $kw2sha = [];
 
         // NOTE: avoid pcre limitation "regular expression is too large at offset"
         for ($i = 0; !empty($kwtmp = array_slice($keywords, 500 * $i, 500)); $i++) {
