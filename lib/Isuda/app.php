@@ -133,7 +133,7 @@ $app->get('/', function (Request $req, Response $c) use ($container) {
 
     $offset = $PER_PAGE * ($page-1);
     $entries = $dbh->select_all(
-        'SELECT * FROM entry '.
+        'SELECT description, keyword FROM entry '.
         'ORDER BY updated_at DESC '.
         "LIMIT $PER_PAGE ".
         "OFFSET $offset"
@@ -245,7 +245,7 @@ $app->get('/keyword/{keyword}', function (Request $req, Response $c) use ($conta
 
     $dbh = $container->getDbh();
     $entry = $dbh->select_row(
-        'SELECT * FROM entry'
+        'SELECT description, keyword FROM entry'
         .' WHERE keyword = ?'
     , $keyword);
     if (empty($entry)) return $c->withStatus(404);
