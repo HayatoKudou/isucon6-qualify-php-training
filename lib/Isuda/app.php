@@ -133,7 +133,7 @@ $app->get('/', function (Request $req, Response $c) use ($container) {
 
     $offset = $PER_PAGE * ($page-1);
     $entries = $dbh->select_all(
-        'SELECT description, keyword FROM entry '.
+        'SELECT * FROM entry '.
         'ORDER BY updated_at DESC '.
         "LIMIT $PER_PAGE ".
         "OFFSET $offset"
