@@ -30,7 +30,7 @@ $app->get('/initialize', function (Request $req, Response $c) {
 
 $app->get('/stars', function (Request $req, Response $c) {
     $stars = $this->dbh->select_all(
-        'SELECT * FROM star WHERE keyword = ?'
+        'SELECT user_name FROM star WHERE keyword = ?'
     , $req->getParams()['keyword']);
 
     return render_json($c, [
@@ -45,7 +45,7 @@ $app->post('/stars', function (Request $req, Response $c) {
     $url = "$origin/keyword/" . rawurlencode($keyword);
     $ua = new \GuzzleHttp\Client;
     try {
-        $ua->request('GET', $url)->getBody();
+        $res = $ua->request('GET', $url)->getBody();
     } catch (\Exception $e) {
         return $c->withStatus(404);
     }
