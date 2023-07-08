@@ -48,12 +48,14 @@ $container = new class extends \Slim\Container {
         $keywordChunks = array_chunk($keywordsMap, $chunkSize);
 
         foreach ($keywordChunks as $keywordChunk) {
+//            $pattern = '/(' . implode('|', array_map('preg_quote', $keywordChunk)) . ')/i';
             $pattern = '/\b(' . implode('|', array_map(function($keyword) {
                     return preg_quote($keyword, '/');
                 }, $keywordChunk)) . ')\b/i';
 
             $content = preg_replace_callback($pattern, function ($match) {
-                $keyword = $match[1];
+                var_dump($match);
+                $keyword = $match[0];
                 $url = '/keyword/' . rawurlencode($keyword);
                 return sprintf('<a href="%s">%s</a>', $url, html_escape($keyword));
             }, $content);
