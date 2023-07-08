@@ -40,16 +40,6 @@ $app->get('/stars', function (Request $req, Response $c) {
 
 $app->post('/stars', function (Request $req, Response $c) {
     $keyword = $req->getParams()['keyword'];
-
-    $origin = $_ENV['ISUDA_ORIGIN'] ?? 'http://localhost:5000';
-    $url = "$origin/keyword/" . rawurlencode($keyword);
-    $ua = new \GuzzleHttp\Client;
-    try {
-        $res = $ua->request('GET', $url)->getBody();
-    } catch (\Exception $e) {
-        return $c->withStatus(404);
-    }
-
     $this->dbh->query(
         'INSERT INTO star (keyword, user_name, created_at) VALUES (?, ?, NOW())',
         $keyword,
