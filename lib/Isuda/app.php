@@ -59,7 +59,8 @@ $container = new class extends \Slim\Container {
             return $link;
         }, $content);
 
-        var_dump($content);
+        ob_start();
+        var_dump(nl2br($content, true));
 
         // NOTE: avoid pcre limitation "regular expression is too large at offset"
         for ($i = 0; !empty($kwtmp = array_slice($keywords, 500 * $i, 500)); $i++) {
@@ -78,7 +79,8 @@ $container = new class extends \Slim\Container {
             $content = preg_replace("/{$hash}/", $link, $content);
         }
 
-        var_dump($content);
+        ob_start();
+        var_dump(nl2br($content, true));
         
         return nl2br($content, true);
     }
