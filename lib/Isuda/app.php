@@ -41,9 +41,7 @@ $container = new class extends \Slim\Container {
         if (!isset($content)) {
             return '';
         }
-        $keywords = $this->dbh->select_all(
-            'SELECT * FROM entry ORDER BY CHARACTER_LENGTH(keyword) DESC'
-        );
+        $keywords = $this->dbh->select_all('SELECT * FROM entry ORDER BY keyword_length DESC');
         $kw2sha = [];
 
         // NOTE: avoid pcre limitation "regular expression is too large at offset"
