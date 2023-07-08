@@ -41,29 +41,20 @@ $container = new class extends \Slim\Container {
         if (!isset($content)) {
             return '';
         }
-        $keywords = $this->dbh->select_all(
-            'SELECT keyword FROM entry ORDER BY keyword_length DESC'
-        );
-        $kw2sha = [];
+        $keywords = $this->dbh->select_all('SELECT keyword FROM entry ORDER BY keyword_length DESC');
+        $keywordsMap = array_column($keywords, 'keyword');
 
-        // NOTE: avoid pcre limitation "regular expression is too large at offset"
-        for ($i = 0; !empty($kwtmp = array_slice($keywords, 500 * $i, 500)); $i++) {
-            $re = implode('|', array_map(function ($keyword) { return quotemeta($keyword['keyword']); }, $kwtmp));
-            preg_replace_callback("/($re)/", function ($m) use (&$kw2sha) {
-                $kw = $m[1];
-                return $kw2sha[] = $kw;
-            }, $content);
-        }
-        $content = strtr($content, $kw2sha);
-        $content = html_escape($content);
-        var_dump($kw2sha);
-        foreach ($kw2sha as $kw) {
-            $url = '/keyword/' . rawurlencode($kw);
-            $link = sprintf('<a href="%s">%s</a>', $url, html_escape($kw));
+        $pattern = '/(' . implode('|', array_map('preg_quote', $keywordsMap)) . ')/i';
 
-            $content = preg_replace("/{$kw}/", $link, $content);
-        }
-        return nl2br($content, true);
+        $content = preg_replace_callback($pattern, function ($match) {
+            $keyword = $match[1];
+            $url = '/keyword/' . rawurlencode($keyword);
+            $link = sprintf('<a href="%s">%s</a>', $url, html_escape($keyword));
+            return $link;
+        }, $content);
+        var_dump($content);
+
+        return nl2br(html_escape($content), true);
     }
 
     public function load_stars($keyword) {
