@@ -48,7 +48,7 @@ $container = new class extends \Slim\Container {
         $keywordChunks = array_chunk($keywordsMap, $chunkSize);
 
         foreach ($keywordChunks as $keywordChunk) {
-            $pattern = '/\b(' . implode('|', array_map('preg_quote', $keywordsMap)) . ')\b/i';
+            $pattern = '/\b(' . implode('|', array_map('preg_quote', $keywordChunk)) . ')\b/i';
             var_dump($pattern);
 
             $content = preg_replace_callback($pattern, function ($match) {
