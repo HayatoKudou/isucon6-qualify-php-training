@@ -41,24 +41,28 @@ $container = new class extends \Slim\Container {
         if (!isset($content)) {
             return '';
         }
+        $keywords = $this->dbh->select_all(
+            'SELECT keyword FROM entry ORDER BY keyword_length DESC'
+        );
+        $kw2sha = [];
 
-        // キーワードの取得
-        $keywords = $this->dbh->select_all('SELECT * FROM entry ORDER BY keyword_length DESC');
-        $keywordsMap = array_column($keywords, 'keyword');
+        // NOTE: avoid pcre limitation "regular expression is too large at offset"
+        for ($i = 0; !empty($kwtmp = array_slice($keywords, 500 * $i, 500)); $i++) {
+            $re = implode('|', array_map(function ($keyword) { return quotemeta($keyword['keyword']); }, $kwtmp));
+            preg_replace_callback("/($re)/", function ($m) use (&$kw2sha) {
+                $kw = $m[1];
+                return $kw2sha[$kw] = "isuda_" . sha1($kw);
+            }, $content);
+        }
+        $content = strtr($content, $kw2sha);
+        $content = html_escape($content);
+        foreach ($kw2sha as $kw => $hash) {
+            $url = '/keyword/' . rawurlencode($kw);
+            $link = sprintf('<a href="%s">%s</a>', $url, html_escape($kw));
 
-        // キーワードの正規表現パターンの生成
-        $pattern = '/(' . implode('|', array_map('preg_quote', $keywordsMap)) . ')/';
-
-        // コンテンツ内のキーワードを置換
-        $content = preg_replace_callback($pattern, function ($match) use ($keywords) {
-            $keyword = $match[1];
-            $hash = "isuda_" . sha1($keyword);
-            $url = '/keyword/' . rawurlencode($keyword);
-            $link = sprintf('<a href="%s">%s</a>', $url, html_escape($keyword));
-            return str_replace($keyword, $hash, $link);
-        }, $content);
-
-        return nl2br(html_escape($content), true);
+            $content = preg_replace("/{$hash}/", $link, $content);
+        }
+        return nl2br($content, true);
     }
 
     public function load_stars($keyword) {
