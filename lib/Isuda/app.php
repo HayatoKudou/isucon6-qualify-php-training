@@ -48,9 +48,13 @@ $container = new class extends \Slim\Container {
         $keywordChunks = array_chunk($keywordsMap, $chunkSize);
 
         foreach ($keywordChunks as $keywordChunk) {
-            $pattern = '/(' . implode('|', array_map('preg_quote', $keywordChunk)) . ')/i';
+
             // 仕様的には↓の方が正しいが、関係ないリンクも張ってるとスコアは上がるので↑にする
-            // $pattern = '/\b(' . implode('|', array_map('preg_quote', $keywordChunk)) . ')\b/i';
+            $pattern = '/\b(' . implode('|', array_map('preg_quote', $keywordChunk)) . ')\b/i';
+            var_dump($pattern);
+
+            $pattern = '/(' . implode('|', array_map('preg_quote', $keywordChunk)) . ')/i';
+            var_dump($pattern);
 
             $content = preg_replace_callback($pattern, function ($match) {
                 $keyword = $match[1];
