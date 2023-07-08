@@ -46,6 +46,12 @@ $container = new class extends \Slim\Container {
         );
         $kw2sha = [];
 
+        $keywordsMap = array_column($keywords, 'keyword');
+        var_dump($keywordsMap);
+
+        $pattern = '/(' . implode('|', array_map('preg_quote', $keywordsMap)) . ')/i';
+        var_dump($pattern);
+
         // NOTE: avoid pcre limitation "regular expression is too large at offset"
         for ($i = 0; !empty($kwtmp = array_slice($keywords, 500 * $i, 500)); $i++) {
             $re = implode('|', array_map(function ($keyword) { return quotemeta($keyword['keyword']); }, $kwtmp));
