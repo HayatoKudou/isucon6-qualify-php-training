@@ -59,8 +59,7 @@ $container = new class extends \Slim\Container {
             return $link;
         }, $content);
 
-        ob_start();
-        var_dump(nl2br($content, true));
+        echo '<script>console.log('. json_encode($content) .');</script>';
 
         // NOTE: avoid pcre limitation "regular expression is too large at offset"
         for ($i = 0; !empty($kwtmp = array_slice($keywords, 500 * $i, 500)); $i++) {
@@ -79,8 +78,7 @@ $container = new class extends \Slim\Container {
             $content = preg_replace("/{$hash}/", $link, $content);
         }
 
-        ob_start();
-        var_dump(nl2br($content, true));
+        echo '<script>console.log('. json_encode($content) .');</script>';
         
         return nl2br($content, true);
     }
