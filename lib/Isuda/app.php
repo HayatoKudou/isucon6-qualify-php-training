@@ -48,7 +48,7 @@ $container = new class extends \Slim\Container {
         if (!isset($content)) {
             return '';
         }
-        $keywords = $this->dbh->select_all('SELECT keyword FROM entry ORDER BY keyword_length DESC');
+        $keywords = $this->getDbh()->select_all('SELECT keyword FROM entry ORDER BY keyword_length DESC');
         $keywordsMap = array_column($keywords, 'keyword');
 
         $chunkSize = 500;
@@ -98,7 +98,7 @@ $mw['set_name'] = function ($req, $c, $next) {
     $user_id = $_SESSION['user_id'] ?? null;
     if (isset($user_id)) {
         $this->get('stash')['user_id'] = $user_id;
-        $this->get('stash')['user_name'] = $this->dbh->select_one(
+        $this->get('stash')['user_name'] = $this->getDbh()->select_one(
             'SELECT name FROM user WHERE id = ?'
             , $user_id);
         if (!isset($this->get('stash')['user_name'])) {
