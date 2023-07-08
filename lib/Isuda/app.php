@@ -170,10 +170,10 @@ $app->post('/keyword', function (Request $req, Response $c) use ($container) {
     }
     $dbh = $container->getDbh();
     $dbh->query(
-        'INSERT INTO entry (keyword, description, created_at, updated_at)'
+        'INSERT INTO entry (author_id, keyword, description, created_at, updated_at)'
         .' VALUES (?, ?, ?, NOW(), NOW())'
         .' ON DUPLICATE KEY UPDATE'
-        .' keyword = ?, description = ?, updated_at = NOW()'
+        .' author_id = ?, keyword = ?, description = ?, updated_at = NOW()'
     , $user_id, $keyword, $description, $user_id, $keyword, $description);
 
     return $c->withRedirect('/');
