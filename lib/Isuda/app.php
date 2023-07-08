@@ -245,7 +245,7 @@ $app->get('/keyword/{keyword}', function (Request $req, Response $c) use ($conta
 
     $dbh = $container->getDbh();
     $entry = $dbh->select_row(
-        'SELECT description, keyword FROM entry'
+        'SELECT * FROM entry'
         .' WHERE keyword = ?'
     , $keyword);
     if (empty($entry)) return $c->withStatus(404);
